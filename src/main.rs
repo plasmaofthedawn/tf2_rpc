@@ -4,29 +4,56 @@ mod log;
 
 extern crate discord_rpc_client;
 
+use log::Tf2State;
 use std::{thread, time};
 use sysinfo::{ProcessExt, System, SystemExt};
 
 fn main() {
 
-    let h = log::new_lines();
-    println!("{}, {}", h.len(), h.get(0).unwrap());
+    let mut current_state = Tf2State::Menu;
 
-    //return;
+    while is_tf2_running() {
+        assert!(is_tf2_running(), "Tf2 is not running, exiting.");
 
-    //assert!(is_tf2_running(), "tf2 is not running");
+        let h = log::get_tf2_state();
 
-    let info = server::get_server_info( "5.188.225.147:27015");
-    presence::set_activity_playing(&info);
+        if h.is_none() {
+            println!("No change in state")
+        } else {
+            current_state = h.unwrap();
+        }
 
-    println!("{} on {}, {}/{} players.", info.name, info.map, info.players, info.max_players);
+        match &current_state {
+            Tf2State::Menu => {
+                println!("Menu");
+                if let Err(e) = presence::set_activity_menu() {
+                    eprintln!("Unable to set menu activity: {}", e);
+                }
+            }
+            Tf2State::Server(ip)=> {
 
-    let info = server::get_server_info("5.188.225.147:27015");
-    presence::set_activity_playing( &info);
+                println!("Game on ip {}", &ip);
+                match server::get_server_info(&ip.as_str()) {
+                    Ok(info) => {
+                        if let Err(e) = presence::set_activity_playing_from_info(&info) {
+                            eprintln!("Unable to set playing activity: {}", e);
+                        }
+                    }
+                    Err(e) =>  {
+                        eprintln!("Unable to get information from server {}: {}", &ip, e);
+                        if let Err(e2) = presence::set_activity_playing("Unknown", &ip.as_str(), 0, 0) {
+                            eprintln!("Unable to set playing activity: {}", e2);
+                        };
+                    }
+                };
+            }
+        }
 
-    println!("{} on {}, {}/{} players.", info.name, info.map, info.players, info.max_players);
+        thread::sleep(time::Duration::from_secs(5))
+    }
 
-    thread::sleep(time::Duration::from_secs(100))
+    println!("Tf2 is not running -- exiting");
+
 }
 
 fn is_tf2_running() -> bool {
