@@ -1,14 +1,18 @@
 use a2s::info::Info;
 use discord_rpc_client::Client;
+use lazy_static::lazy_static;
+use std::sync::Mutex;
 
-pub fn make_drpc() -> Client {
-    let mut drpc = Client::new(451950787996680192);
-    drpc.start();
-    drpc
+lazy_static! {
+    static ref DRPC: Mutex<Client> = {
+        let mut drpc = Client::new(451950787996680192);
+        drpc.start();
+        Mutex::new(drpc)
+    };
 }
 
-pub fn set_activity_playing(drpc: &mut Client, info: &Info) {
-    drpc.set_activity(|act| act
+pub fn set_activity_playing(info: &Info) {
+    DRPC.lock().unwrap().set_activity(|act| act
         .state(format!("{} ({}/{})", info.map.as_str(), info.players, info.max_players))
         .details(info.name.as_str())
         .assets(|ass| ass

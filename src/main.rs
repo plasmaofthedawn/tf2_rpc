@@ -12,20 +12,19 @@ fn main() {
     let h = log::new_lines();
     println!("{}, {}", h.len(), h.get(0).unwrap());
 
-    return;
+    //return;
 
     //assert!(is_tf2_running(), "tf2 is not running");
 
-    let client = server::make_client();
-    let mut drpc = presence::make_drpc();
-
-    let info = server::get_server_info(&client, "5.188.225.147:27015");
-    presence::set_activity_playing(&mut drpc, &info);
+    let info = server::get_server_info( "5.188.225.147:27015");
+    presence::set_activity_playing(&info);
 
     println!("{} on {}, {}/{} players.", info.name, info.map, info.players, info.max_players);
 
-    let info = server::get_server_info(&client, "169.254.91.154:61400");
-    presence::set_activity_playing(&mut drpc, &info);
+    let info = server::get_server_info("5.188.225.147:27015");
+    presence::set_activity_playing( &info);
+
+    println!("{} on {}, {}/{} players.", info.name, info.map, info.players, info.max_players);
 
     thread::sleep(time::Duration::from_secs(100))
 }
