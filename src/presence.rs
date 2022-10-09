@@ -1,11 +1,10 @@
-use std::fmt;
-use std::fmt::{Display, Formatter};
 use a2s::info::Info;
 use discord_rpc_client::Client;
 use lazy_static::lazy_static;
 use std::sync::Mutex;
-use discord_rpc_client::models::Activity;
-use discord_rpc_client::models::payload::Payload;
+use std::time::{UNIX_EPOCH, SystemTime};
+use crate::log::QueueType;
+
 
 lazy_static! {
     static ref DRPC: Mutex<Client> = {
@@ -15,41 +14,32 @@ lazy_static! {
     };
 }
 
-//TODO: is this here really neccessary
-// discord_rpc_client::error::Result is private so i kinda hve to make my own and it's annoying
-// error code is here https://gitlab.com/valeth/discord-rpc-client.rs/-/blob/master/src/error.rs
-
-type Result<T> = std::result::Result<T, ActivityError>;
-pub struct ActivityError;
-impl Display for ActivityError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Error doing an activity.")
+pub fn set_activity_playing(map: &str, name: &str, players: u8, max_players: u8) {
+    let state: String;
+    match max_players {
+        0 => state = String::from("Playing"),
+        _ => state = format!("Playing ({}/{})", players, max_players),
     }
-}
 
-pub fn set_activity_playing(map: &str, name: &str, players: u8, max_players: u8) -> Result<Payload<Activity>> {
-      let t = DRPC.lock().unwrap().set_activity(|act| act
-        .state(format!("{} ({}/{})", map, players, max_players))
+    let t = DRPC.lock().unwrap().set_activity(|act| act
+        .state(state)
         .details(name)
         .assets(|ass| ass
-            .large_image(map_to_image_name(map))
-            .large_text(map)
-        )
-     );
+        .large_image(map_to_image_name(map))
+        .large_text(map)
+    )
+    );
 
-    if t.is_ok() {
-        Ok(t.unwrap())
-    } else {
-        Err(ActivityError)
+     if let Err(why) = t {
+        eprintln!("Failed to set activity: {}", why);
     }
-
 }
 
-pub fn set_activity_playing_from_info(info: &Info) -> Result<Payload<Activity>> {
+pub fn set_activity_playing_from_info(info: &Info) {
     set_activity_playing(&info.map, &info.name, info.players, info.max_players)
 }
 
-pub fn set_activity_menu () -> Result<Payload<Activity>>{
+pub fn set_activity_menu () {
     let t = DRPC.lock().unwrap().set_activity(|act| act
         .details("Main Menu")
         .assets(|ass| ass
@@ -60,10 +50,33 @@ pub fn set_activity_menu () -> Result<Payload<Activity>>{
         )
     );
 
-    if t.is_ok() {
-        Ok(t.unwrap())
-    } else {
-        Err(ActivityError)
+    if let Err(why) = t {
+        eprintln!("Failed to set activity: {}", why);
+    }
+}
+
+pub fn set_activity_queue(queue_type: &QueueType) {
+    let queue = match queue_type {
+        QueueType::Casual => "Casual",
+        QueueType::Competitive => "Competitive",
+    };
+    let start = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards").as_secs();
+    let t = DRPC.lock().unwrap().set_activity(|act| act
+        .details("Main Menu")
+        .state(format!("Queueing for {}", queue))
+        .timestamps(|a| a.start(start))
+        .assets(|ass| ass
+            .large_image("mainmenu")
+            .large_text("Main Menu")
+            .small_image("tf2button")
+            .small_text("TF2_RPC by plasmaofthedawn#1435 and viruz#9907")
+        )
+    );
+
+    if let Err(why) = t {
+        eprintln!("Failed to set activity: {}", why);
     }
 }
 
